@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<body>
+  <div id="editor"></div>
+  <div id="output"></div>
+
+  <script type="module">
+    import { Editor } from "https://esm.sh/@tiptap/core";
+    import StarterKit from "https://esm.sh/@tiptap/starter-kit";
+
+    const initialContent = {{ post_content | tojson }}
+
+    const output = document.getElementById("output");
+    const editor = new Editor({
+      element: document.querySelector("#editor"),
+      extensions: [StarterKit],
+      content: initialContent,
+      onUpdate({editor}) {
+        output.innerText = JSON.stringify(editor.getJSON());
+      }
+    });
+  </script>
+</body>
+</html>

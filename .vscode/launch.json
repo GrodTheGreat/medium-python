@@ -1,0 +1,14 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Medium:dev",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "fastapi",
+      "args": ["dev", "src/medium/app.py"],
+      "python": "${workspaceFolder}/.venv/bin/python",
+      "console": "integratedTerminal"
+    }
+  ]
+}
