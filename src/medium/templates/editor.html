@@ -1,15 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Document</title>
-</head>
-<body>
-  <div id="editor"></div>
-  <div id="output"></div>
-
-  <script type="module">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="description" content="">
+    <meta name="keywords" content="">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+  </head>
+  <body>
+    <div id="editor"></div>
+    <div id="output"></div>
+    <script type="module">
     import { Editor } from "https://esm.sh/@tiptap/core";
     import StarterKit from "https://esm.sh/@tiptap/starter-kit";
 
@@ -24,6 +25,6 @@
         output.innerText = JSON.stringify(editor.getJSON());
       }
     });
-  </script>
-</body>
+    </script>
+  </body>
 </html>
