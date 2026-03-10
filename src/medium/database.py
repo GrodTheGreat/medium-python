@@ -4,6 +4,8 @@ from typing import Optional
 
 from sqlmodel import Field, Relationship, Session, SQLModel, StaticPool, create_engine
 
+from medium.passwords import hash_password
+
 
 class ArticleStatus(Enum):
     DRAFT = "draft"
@@ -54,7 +56,11 @@ engine = create_engine(
 SQLModel.metadata.create_all(engine)
 
 with Session(engine) as session:
-    user = User(email="user@email.com", username="testuser", password_hash="password")
+    user = User(
+        email="user@email.com",
+        username="testuser",
+        password_hash=hash_password("password"),
+    )
     article = Article(
         title="Medium (website)",
         slug="medium",
