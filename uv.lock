@@ -499,6 +499,7 @@ dependencies = [
     { name = "fastapi", extra = ["standard"] },
     { name = "jinja2" },
     { name = "pydantic" },
+    { name = "python-multipart" },
     { name = "sqlmodel" },
     { name = "strawberry-graphql", extra = ["fastapi"] },
 ]
@@ -517,6 +518,7 @@ requires-dist = [
     { name = "fastapi", extras = ["standard"], specifier = ">=0.129.0" },
     { name = "jinja2", specifier = ">=3.1.6" },
     { name = "pydantic", specifier = ">=2.12.5" },
+    { name = "python-multipart", specifier = ">=0.0.22" },
     { name = "sqlmodel", specifier = ">=0.0.37" },
     { name = "strawberry-graphql", extras = ["fastapi"], specifier = ">=0.307.1" },
 ]
