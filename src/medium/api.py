@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Path, status
 from sqlmodel import Session, select
 
-from medium.database import Post, engine
+from medium.database import Article, engine
 from medium.exceptions import NotFoundException
 from medium.schemas import BaseSchema
 
@@ -36,7 +36,7 @@ PostIdRouteParam = Annotated[int, Path(alias="postId", ge=1)]
 @api.get("/posts/{postId:int}", status_code=status.HTTP_200_OK)
 async def get_post_info_api(post_id: PostIdRouteParam):
     with Session(engine) as db:
-        statement = select(Post).where(Post.id == post_id).limit(1)
+        statement = select(Article).where(Article.id == post_id).limit(1)
         post = db.exec(statement).first()
         if post is None:
             raise NotFoundException()
@@ -59,7 +59,7 @@ async def get_post_comments_api(post_id: PostIdRouteParam):
 @api.get("/posts/{postId:int}/content", status_code=status.HTTP_200_OK)
 async def get_post_content_api(post_id: PostIdRouteParam) -> PostContentResponse:
     with Session(engine) as db:
-        statement = select(Post).where(Post.id == post_id).limit(1)
+        statement = select(Article).where(Article.id == post_id).limit(1)
         post = db.exec(statement).first()
         if post is None:
             raise NotFoundException()
@@ -77,7 +77,7 @@ async def get_post_fans_api(post_id: PostIdRouteParam):
 @api.get("/posts/{postId:int}/html", status_code=status.HTTP_200_OK)
 async def get_post_html_api(post_id: PostIdRouteParam) -> PostHTMLResponse:
     with Session(engine) as db:
-        statement = select(Post).where(Post.id == post_id).limit(1)
+        statement = select(Article).where(Article.id == post_id).limit(1)
         post = db.exec(statement).first()
         if post is None:
             raise NotFoundException()
@@ -90,7 +90,7 @@ async def get_post_html_api(post_id: PostIdRouteParam) -> PostHTMLResponse:
 @api.get("/posts/{postId:int}/markdown", status_code=status.HTTP_200_OK)
 async def get_post_markdown_api(post_id: PostIdRouteParam) -> PostMarkdownResponse:
     with Session(engine) as db:
-        statement = select(Post).where(Post.id == post_id).limit(1)
+        statement = select(Article).where(Article.id == post_id).limit(1)
         post = db.exec(statement).first()
         if post is None:
             raise NotFoundException()

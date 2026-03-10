@@ -6,7 +6,7 @@ from fastapi import APIRouter, Path, Request, status
 from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select
 
-from medium.database import Post, engine
+from medium.database import Article, engine
 from medium.exceptions import NotFoundException
 
 BASE_DIR = pathlib.Path(__file__).parent
@@ -14,7 +14,7 @@ TEMPLATES_DIR = BASE_DIR / "templates"
 
 templates = Jinja2Templates(TEMPLATES_DIR)
 
-PostIdRouteParam = Annotated[int, Path(alias="postId", ge=1)]
+ArticleIdRouteParam = Annotated[int, Path(alias="articleId", ge=1)]
 
 ssr = APIRouter()
 
@@ -26,43 +26,51 @@ async def get_index(request: Request):
 
 @ssr.get("/new-story", status_code=status.HTTP_200_OK)
 async def get_new_story(request: Request):
-    return templates.TemplateResponse(request, "editor.html", {"post_content": None})
+    return templates.TemplateResponse(request, "editor.html", {"article_content": None})
 
 
-@ssr.get("/{postId:int}", status_code=status.HTTP_200_OK)
-async def get_post(request: Request, post_id: PostIdRouteParam):
+@ssr.get("/{articleId:int}", status_code=status.HTTP_200_OK)
+async def get_article(request: Request, article_id: ArticleIdRouteParam):
     with Session(engine) as db:
-        statement = select(Post).where(Post.id == post_id).limit(1)
-        post = db.exec(statement).first()
-        if post is None:
+        statement = select(Article).where(Article.id == article_id).limit(1)
+        article = db.exec(statement).first()
+        if article is None:
             raise NotFoundException()
-        if post.id is None:
+        if article.id is None:
             raise Exception()
 
     return templates.TemplateResponse(
         request,
-        "post.html",
-        {"post_html": post.html_content},
+        "article.html",
+        {"article_html": article.html_content},
     )
 
 
-@ssr.get("/p/{postId:int}/edit", status_code=status.HTTP_200_OK)
-async def get_edit_post(request: Request, post_id: PostIdRouteParam):
+@ssr.get("/p/{articleId:int}/edit", status_code=status.HTTP_200_OK)
+async def get_edit_article(request: Request, article_id: ArticleIdRouteParam):
     with Session(engine) as db:
-        statement = select(Post).where(Post.id == post_id).limit(1)
-        post = db.exec(statement).first()
-        if post is None:
+        statement = select(Article).where(Article.id == article_id).limit(1)
+        article = db.exec(statement).first()
+        if article is None:
             raise NotFoundException()
-        if post.id is None:
+        if article.id is None:
             raise Exception()
 
     return templates.TemplateResponse(
         request,
         "editor.html",
-        {"post_content": json.loads(post.json_content) if post.json_content else None},
+        {
+            "article_content": json.loads(article.json_content)
+            if article.json_content
+            else None
+        },
     )
 
 
-@ssr.get("/{namespace:str}/{slug:str}-{postId:int}", status_code=status.HTTP_200_OK)
-async def get_published_post(namespace: str, slug: str, post_id: PostIdRouteParam):
+@ssr.get("/{namespace:str}/{slug:str}-{articleId:int}", status_code=status.HTTP_200_OK)
+async def get_published_article(
+    namespace: str,
+    slug: str,
+    article_id: ArticleIdRouteParam,
+):
     raise NotImplementedError()
