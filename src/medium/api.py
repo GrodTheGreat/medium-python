@@ -8,103 +8,107 @@ from medium.exceptions import NotFoundException
 from medium.schemas import BaseSchema
 
 
-class PostContentResponse(BaseSchema):
+class ArticleContentResponse(BaseSchema):
     id: int
     content: str
 
 
-class PostInfoResponse(BaseSchema):
+class ArticleInfoResponse(BaseSchema):
     id: int
     title: str
 
 
-class PostMarkdownResponse(BaseSchema):
+class ArticleMarkdownResponse(BaseSchema):
     id: int
     markdown: str
 
 
-class PostHTMLResponse(BaseSchema):
+class ArticleHTMLResponse(BaseSchema):
     id: int
     html: str
 
 
 api = APIRouter()
 
-PostIdRouteParam = Annotated[int, Path(alias="postId", ge=1)]
+ArticleIdRouteParam = Annotated[int, Path(alias="articleId", ge=1)]
 
 
-@api.get("/posts/{postId:int}", status_code=status.HTTP_200_OK)
-async def get_post_info_api(post_id: PostIdRouteParam):
+@api.get("/articles/{articleId:int}", status_code=status.HTTP_200_OK)
+async def get_article_info_api(article_id: ArticleIdRouteParam):
     with Session(engine) as db:
-        statement = select(Article).where(Article.id == post_id).limit(1)
-        post = db.exec(statement).first()
-        if post is None:
+        statement = select(Article).where(Article.id == article_id).limit(1)
+        article = db.exec(statement).first()
+        if article is None:
             raise NotFoundException()
-        if post.id is None:
+        if article.id is None:
             raise Exception()
 
-    return PostInfoResponse(id=post.id, title=post.title)
+    return ArticleInfoResponse(id=article.id, title=article.title)
 
 
-@api.get("/posts/{postId:int}/assets", status_code=status.HTTP_200_OK)
-async def get_post_assets_api(post_id: PostIdRouteParam):
+@api.get("/articles/{articleId:int}/assets", status_code=status.HTTP_200_OK)
+async def get_article_assets_api(article_id: ArticleIdRouteParam):
     raise NotImplementedError()
 
 
-@api.get("/posts/{postId:int}/comments", status_code=status.HTTP_200_OK)
-async def get_post_comments_api(post_id: PostIdRouteParam):
+@api.get("/articles/{articleId:int}/comments", status_code=status.HTTP_200_OK)
+async def get_article_comments_api(article_id: ArticleIdRouteParam):
     raise NotImplementedError()
 
 
-@api.get("/posts/{postId:int}/content", status_code=status.HTTP_200_OK)
-async def get_post_content_api(post_id: PostIdRouteParam) -> PostContentResponse:
+@api.get("/articles/{articleId:int}/content", status_code=status.HTTP_200_OK)
+async def get_article_content_api(
+    article_id: ArticleIdRouteParam,
+) -> ArticleContentResponse:
     with Session(engine) as db:
-        statement = select(Article).where(Article.id == post_id).limit(1)
-        post = db.exec(statement).first()
-        if post is None:
+        statement = select(Article).where(Article.id == article_id).limit(1)
+        article = db.exec(statement).first()
+        if article is None:
             raise NotFoundException()
-        if post.id is None:
+        if article.id is None:
             raise Exception()
 
-    return PostContentResponse(id=post.id, content=post.text_content)
+    return ArticleContentResponse(id=article.id, content=article.text_content)
 
 
-@api.get("/posts/{postId:int}/fans", status_code=status.HTTP_200_OK)
-async def get_post_fans_api(post_id: PostIdRouteParam):
+@api.get("/articles/{articleId:int}/fans", status_code=status.HTTP_200_OK)
+async def get_article_fans_api(article_id: ArticleIdRouteParam):
     raise NotImplementedError()
 
 
-@api.get("/posts/{postId:int}/html", status_code=status.HTTP_200_OK)
-async def get_post_html_api(post_id: PostIdRouteParam) -> PostHTMLResponse:
+@api.get("/articles/{articleId:int}/html", status_code=status.HTTP_200_OK)
+async def get_article_html_api(article_id: ArticleIdRouteParam) -> ArticleHTMLResponse:
     with Session(engine) as db:
-        statement = select(Article).where(Article.id == post_id).limit(1)
-        post = db.exec(statement).first()
-        if post is None:
+        statement = select(Article).where(Article.id == article_id).limit(1)
+        article = db.exec(statement).first()
+        if article is None:
             raise NotFoundException()
-        if post.id is None:
+        if article.id is None:
             raise Exception()
 
-    return PostHTMLResponse(id=post.id, html=post.html_content)
+    return ArticleHTMLResponse(id=article.id, html=article.html_content)
 
 
-@api.get("/posts/{postId:int}/markdown", status_code=status.HTTP_200_OK)
-async def get_post_markdown_api(post_id: PostIdRouteParam) -> PostMarkdownResponse:
+@api.get("/articles/{articleId:int}/markdown", status_code=status.HTTP_200_OK)
+async def get_article_markdown_api(
+    article_id: ArticleIdRouteParam,
+) -> ArticleMarkdownResponse:
     with Session(engine) as db:
-        statement = select(Article).where(Article.id == post_id).limit(1)
-        post = db.exec(statement).first()
-        if post is None:
+        statement = select(Article).where(Article.id == article_id).limit(1)
+        article = db.exec(statement).first()
+        if article is None:
             raise NotFoundException()
-        if post.id is None:
+        if article.id is None:
             raise Exception()
 
-    return PostMarkdownResponse(id=post.id, markdown=post.markdown_content)
+    return ArticleMarkdownResponse(id=article.id, markdown=article.markdown_content)
 
 
-@api.get("/posts/{postId:int}/recommended", status_code=status.HTTP_200_OK)
-async def get_post_recommended_api(post_id: PostIdRouteParam):
+@api.get("/articles/{articleId:int}/recommended", status_code=status.HTTP_200_OK)
+async def get_article_recommended_api(article_id: ArticleIdRouteParam):
     raise NotImplementedError()
 
 
-@api.get("/posts/{postId:int}/related", status_code=status.HTTP_200_OK)
-async def get_post_related_api(post_id: PostIdRouteParam):
+@api.get("/articles/{articleId:int}/related", status_code=status.HTTP_200_OK)
+async def get_article_related_api(article_id: ArticleIdRouteParam):
     raise NotImplementedError()
