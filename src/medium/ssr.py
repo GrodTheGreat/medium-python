@@ -3,10 +3,11 @@ import pathlib
 from typing import Annotated
 
 from fastapi import APIRouter, Path, Request, status
+from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select
 
-from medium.database import Article, engine
+from medium.database import Article, ArticleStatus, User, engine
 from medium.exceptions import NotFoundException
 
 BASE_DIR = pathlib.Path(__file__).parent
@@ -27,23 +28,6 @@ async def get_index(request: Request):
 @ssr.get("/new-story", status_code=status.HTTP_200_OK)
 async def get_new_story(request: Request):
     return templates.TemplateResponse(request, "editor.html", {"article_content": None})
-
-
-@ssr.get("/{articleId:int}", status_code=status.HTTP_200_OK)
-async def get_article(request: Request, article_id: ArticleIdRouteParam):
-    with Session(engine) as db:
-        statement = select(Article).where(Article.id == article_id).limit(1)
-        article = db.exec(statement).first()
-        if article is None:
-            raise NotFoundException()
-        if article.id is None:
-            raise Exception()
-
-    return templates.TemplateResponse(
-        request,
-        "article.html",
-        {"article_html": article.html_content},
-    )
 
 
 @ssr.get("/p/{articleId:int}/edit", status_code=status.HTTP_200_OK)
@@ -69,8 +53,32 @@ async def get_edit_article(request: Request, article_id: ArticleIdRouteParam):
 
 @ssr.get("/{namespace:str}/{slug:str}-{articleId:int}", status_code=status.HTTP_200_OK)
 async def get_published_article(
+    request: Request,
     namespace: str,
     slug: str,
     article_id: ArticleIdRouteParam,
 ):
-    raise NotImplementedError()
+    with Session(engine) as db:
+        statement = (
+            select(Article)
+            .where(Article.id == article_id, Article.status == ArticleStatus.PUBLISHED)
+            .limit(1)
+        )
+        article = db.exec(statement).first()
+    if article is None:
+        return templates.TemplateResponse(request, "404.html")
+    with Session(engine) as db:
+        statement = select(User).where(User.id == article.author_id).limit(1)
+        author = db.exec(statement).first()
+    if author is None:
+        raise Exception()
+    if author.username != namespace or article.slug != slug:
+        return RedirectResponse(
+            f"/{author.username}/{article.slug}-{article.id}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+    return templates.TemplateResponse(
+        request,
+        "article.html",
+        {"title": article.title, "article_content": article.html_content},
+    )
