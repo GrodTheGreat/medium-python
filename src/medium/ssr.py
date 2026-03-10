@@ -1,5 +1,9 @@
+import hashlib
+import hmac
 import json
 import pathlib
+import secrets
+from datetime import datetime, timedelta, timezone
 from typing import Annotated
 
 from fastapi import APIRouter, Form, Path, Request, status
@@ -7,8 +11,9 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select
 
-from medium.database import Article, ArticleStatus, User, engine
+from medium.database import Article, ArticleStatus, User, UserSession, engine
 from medium.exceptions import NotFoundException
+from medium.passwords import hash_password, is_correct_password
 from medium.schemas import BaseSchema
 
 BASE_DIR = pathlib.Path(__file__).parent
@@ -49,7 +54,44 @@ async def get_sign_in(request: Request) -> HTMLResponse:
 
 @ssr.post("/sign-in")
 async def sign_in(data: SignInForm):
-    pass
+    with Session(engine) as db:
+        statement = select(User).where(User.email == data.email).limit(1)
+        user = db.exec(statement).first()
+        if user is None or not is_correct_password(data.password, user.password_hash):
+            raise Exception()
+        session_token = secrets.token_urlsafe(64)
+        session_hash = hashlib.sha256(session_token.encode()).hexdigest()
+        max_age = 60 * 5
+        expiry = datetime.now(timezone.utc) + timedelta(seconds=max_age)
+        session = UserSession(
+            session_hash=session_hash,
+            user_id=user.id,  # type: ignore
+            expires_at=expiry,
+        )
+        db.add(session)
+        db.commit()
+    csrf_token = secrets.token_urlsafe(32)
+    signature = hmac.new(
+        "super-secret-key".encode(),
+        csrf_token.encode(),
+        hashlib.sha256,
+    )
+    csrf = f"{csrf_token}.{signature}"
+    redirect = RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)
+    redirect.set_cookie(
+        key="Medium-Session-Token",
+        value=session_token,
+        max_age=max_age,
+        secure=False,
+        httponly=True,
+    )
+    redirect.set_cookie(
+        key="Medium-CSRF-Token",
+        value=csrf,
+        max_age=max_age,
+        secure=False,
+    )
+    return redirect
 
 
 @ssr.get("/sign-out", status_code=status.HTTP_200_OK)
@@ -69,7 +111,53 @@ async def get_sign_up(request: Request) -> HTMLResponse:
 
 @ssr.post("/sign-up")
 async def sign_up(data: SignUpForm):
-    pass
+    if data.password != data.confirm:
+        raise Exception()
+    with Session(engine) as db:
+        existing_user = select(User).where(User.email == data.email).limit(1)
+        if existing_user is not None:
+            raise Exception()
+        existing_user = select(User).where(User.username == data.username).limit(1)
+        if existing_user is not None:
+            raise Exception()
+        user = User(
+            email=data.email,
+            username=data.username,
+            password_hash=hash_password(data.password),
+        )
+        session_token = secrets.token_urlsafe(64)
+        session_hash = hashlib.sha256(session_token.encode()).hexdigest()
+        max_age = 60 * 5
+        expiry = datetime.now(timezone.utc) + timedelta(seconds=max_age)
+        session = UserSession(
+            session_hash=session_hash,
+            user_id=user.id,  # type: ignore
+            expires_at=expiry,
+        )
+        db.add(session)
+        db.commit()
+    csrf_token = secrets.token_urlsafe(32)
+    signature = hmac.new(
+        "super-secret-key".encode(),
+        csrf_token.encode(),
+        hashlib.sha256,
+    )
+    csrf = f"{csrf_token}.{signature}"
+    redirect = RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)
+    redirect.set_cookie(
+        key="Medium-Session-Token",
+        value=session_token,
+        max_age=max_age,
+        secure=False,
+        httponly=True,
+    )
+    redirect.set_cookie(
+        key="Medium-CSRF-Token",
+        value=csrf,
+        max_age=max_age,
+        secure=False,
+    )
+    return redirect
 
 
 @ssr.get("/new-story", status_code=status.HTTP_200_OK)
