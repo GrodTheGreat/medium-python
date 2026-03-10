@@ -25,9 +25,19 @@ async def get_index(request: Request):
     return templates.TemplateResponse(request, "index.html")
 
 
+@ssr.get("/sign-in", status_code=status.HTTP_200_OK)
+async def get_sign_in(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse(request, "sign-in.html")
+
+
 @ssr.get("/sign-out", status_code=status.HTTP_200_OK)
 async def get_sign_out(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(request, "sign-out.html")
+
+
+@ssr.get("/sign-up", status_code=status.HTTP_200_OK)
+async def get_sign_up(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse(request, "sign-up.html")
 
 
 @ssr.get("/new-story", status_code=status.HTTP_200_OK)
