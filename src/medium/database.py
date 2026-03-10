@@ -54,7 +54,8 @@ engine = create_engine(
 SQLModel.metadata.create_all(engine)
 
 with Session(engine) as session:
-    post = Article(
+    user = User(email="user@email.com", username="testuser", password_hash="password")
+    article = Article(
         title="Medium (website)",
         slug="medium",
         subtitle="An online publishing platform",
@@ -63,6 +64,8 @@ with Session(engine) as session:
         markdown_content="""# Medium (website)\n**Medium** is an American [online publishing platform](https://en.wikipedia.org/wiki/Electronic_publishing) for written content such as articles and blogs, developed by [Evan Williams](https://en.wikipedia.org/wiki/Evan_Williams_(Internet_entrepreneur)) and launched in August 2012. It is owned by **A Medium Corporation**. The platform is an example of [social journalism](https://en.wikipedia.org/wiki/Social_journalism), having a hybrid collection of amateur and professional people and publications, or exclusive blogs or publishers on Medium, and is regularly regarded as a [blog host](https://en.wikipedia.org/wiki/Blog).\nWilliams, who previously co-founded [Blogger](https://en.wikipedia.org/wiki/Blogger_(service)) and [Twitter](https://en.wikipedia.org/wiki/Twitter), initially developed Medium as a means to publish writings and documents longer than Twitter's then 140-character maximum.\nIn March 2021, Medium announced a change in its publishing strategy and business model, reducing its own publications and increasing support of independent writers.""",
         html_content="""<h1>Medium (website)</h1><p><b>Medium</b> is an American <a href="/wiki/Electronic_publishing" title="Electronic publishing">online publishing platform</a> for written content such as articles and blogs, developed by <a href="/wiki/Evan_Williams_(Internet_entrepreneur)" title="Evan Williams (Internet entrepreneur)">Evan Williams</a> and launched in August 2012. It is owned by <b>A Medium Corporation</b>. The platform is an example of <a href="/wiki/Social_journalism" title="Social journalism">social journalism</a>, having a hybrid collection of amateur and professional people and publications, or exclusive blogs or publishers on Medium, and is regularly regarded as a <a href="/wiki/Blog" title="Blog">blog host</a>.</p><p>Williams, who previously co-founded <a href="/wiki/Blogger_(service)" title="Blogger (service)">Blogger</a> and <a href="/wiki/Twitter" class="mw-redirect" title="Twitter">Twitter</a>, initially developed Medium as a means to publish writings and documents longer than Twitter's then 140-character maximum.</p><p>In March 2021, Medium announced a change in its publishing strategy and business model, reducing its own publications and increasing support of independent writers.</p>""",
         status=ArticleStatus.PUBLISHED,
+        author=user,
     )
-    session.add(post)
+    session.add(user)
+    session.add(article)
     session.commit()
