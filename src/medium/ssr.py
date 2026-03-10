@@ -2,13 +2,14 @@ import json
 import pathlib
 from typing import Annotated
 
-from fastapi import APIRouter, Path, Request, status
+from fastapi import APIRouter, Form, Path, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select
 
 from medium.database import Article, ArticleStatus, User, engine
 from medium.exceptions import NotFoundException
+from medium.schemas import BaseSchema
 
 BASE_DIR = pathlib.Path(__file__).parent
 TEMPLATES_DIR = BASE_DIR / "templates"
@@ -18,6 +19,22 @@ templates = Jinja2Templates(TEMPLATES_DIR)
 ArticleIdRouteParam = Annotated[int, Path(alias="articleId", ge=1)]
 
 ssr = APIRouter()
+
+
+class SignInFormData(BaseSchema):
+    email: str
+    password: str
+
+
+class SignUpFormData(BaseSchema):
+    email: str
+    username: str
+    password: str
+    confirm: str
+
+
+SignInForm = Annotated[SignInFormData, Form()]
+SignUpForm = Annotated[SignUpFormData, Form()]
 
 
 @ssr.get("/", status_code=status.HTTP_200_OK)
@@ -30,14 +47,29 @@ async def get_sign_in(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(request, "sign-in.html")
 
 
+@ssr.post("/sign-in")
+async def sign_in(data: SignInForm):
+    pass
+
+
 @ssr.get("/sign-out", status_code=status.HTTP_200_OK)
 async def get_sign_out(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(request, "sign-out.html")
 
 
+@ssr.post("/sign-out")
+async def sign_out():
+    pass
+
+
 @ssr.get("/sign-up", status_code=status.HTTP_200_OK)
 async def get_sign_up(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(request, "sign-up.html")
+
+
+@ssr.post("/sign-up")
+async def sign_up(data: SignUpForm):
+    pass
 
 
 @ssr.get("/new-story", status_code=status.HTTP_200_OK)
