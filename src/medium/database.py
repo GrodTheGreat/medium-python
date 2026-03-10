@@ -1,7 +1,14 @@
 from datetime import datetime
+from enum import Enum
 from typing import Optional
 
 from sqlmodel import Field, Relationship, Session, SQLModel, StaticPool, create_engine
+
+
+class ArticleStatus(Enum):
+    DRAFT = "draft"
+    PUBLISHED = "published"
+    UNLISTED = "unlisted"
 
 
 class Article(SQLModel, table=True):
@@ -14,6 +21,7 @@ class Article(SQLModel, table=True):
     text_content: str
     markdown_content: str
     html_content: str
+    status: ArticleStatus = Field(default=ArticleStatus.DRAFT, index=True)
 
     author: Optional["User"] = Relationship(back_populates="articles")
 
