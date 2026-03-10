@@ -3,7 +3,7 @@ import pathlib
 from typing import Annotated
 
 from fastapi import APIRouter, Path, Request, status
-from fastapi.responses import RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select
 
@@ -23,6 +23,11 @@ ssr = APIRouter()
 @ssr.get("/", status_code=status.HTTP_200_OK)
 async def get_index(request: Request):
     return templates.TemplateResponse(request, "index.html")
+
+
+@ssr.get("/sign-out", status_code=status.HTTP_200_OK)
+async def get_sign_out(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse(request, "sign-out.html")
 
 
 @ssr.get("/new-story", status_code=status.HTTP_200_OK)
