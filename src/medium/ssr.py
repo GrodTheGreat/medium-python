@@ -6,7 +6,7 @@ import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Annotated
 
-from fastapi import APIRouter, Form, Path, Request, status
+from fastapi import APIRouter, Cookie, Depends, Form, Path, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select
@@ -39,8 +39,17 @@ class SignUpFormData(BaseSchema):
     confirm: str
 
 
+SESSION_TOKEN_KEY = "Medium-Session-Token"
+
+SessionCookie = Annotated[str | None, Cookie(alias=SESSION_TOKEN_KEY)]
 SignInForm = Annotated[SignInFormData, Form()]
 SignUpForm = Annotated[SignUpFormData, Form()]
+
+
+def require_anon(session: SessionCookie) -> None:
+    if not session:
+        return
+    # TODO: Look up user by (valid) session, if found then throw
 
 
 @ssr.get("/", status_code=status.HTTP_200_OK)
@@ -48,12 +57,21 @@ async def get_index(request: Request):
     return templates.TemplateResponse(request, "index.html")
 
 
-@ssr.get("/sign-in", status_code=status.HTTP_200_OK)
+@ssr.get(
+    "/sign-in",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(require_anon)],
+)
 async def get_sign_in(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(request, "sign-in.html")
 
 
-@ssr.post("/sign-in")
+@ssr.post(
+    "/sign-in",
+    # TODO: Should status code be 302?
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(require_anon)],
+)
 async def sign_in(data: SignInForm):
     email = data.email.strip().lower()
     user = get_user_by_email(email)
@@ -80,7 +98,7 @@ async def sign_in(data: SignInForm):
     csrf = f"{csrf_token}.{signature}"
     redirect = RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)
     redirect.set_cookie(
-        key="Medium-Session-Token",
+        key=SESSION_TOKEN_KEY,
         value=session_token,
         max_age=max_age,
         secure=False,
@@ -105,12 +123,16 @@ async def sign_out():
     pass
 
 
-@ssr.get("/sign-up", status_code=status.HTTP_200_OK)
+@ssr.get(
+    "/sign-up",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(require_anon)],
+)
 async def get_sign_up(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(request, "sign-up.html")
 
 
-@ssr.post("/sign-up")
+@ssr.post("/sign-up", dependencies=[Depends(require_anon)])
 async def sign_up(data: SignUpForm):
     if data.password != data.confirm:
         raise Exception()
@@ -144,7 +166,7 @@ async def sign_up(data: SignUpForm):
     csrf = f"{csrf_token}.{signature}"
     redirect = RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)
     redirect.set_cookie(
-        key="Medium-Session-Token",
+        key=SESSION_TOKEN_KEY,
         value=session_token,
         max_age=max_age,
         secure=False,
