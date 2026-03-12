@@ -15,6 +15,7 @@ from medium.database import Article, ArticleStatus, User, UserSession, engine
 from medium.exceptions import NotFoundException
 from medium.passwords import hash_password, is_correct_password
 from medium.schemas import BaseSchema
+from medium.users import create_user, get_user_by_email, get_user_by_username
 
 BASE_DIR = pathlib.Path(__file__).parent
 TEMPLATES_DIR = BASE_DIR / "templates"
@@ -54,11 +55,11 @@ async def get_sign_in(request: Request) -> HTMLResponse:
 
 @ssr.post("/sign-in")
 async def sign_in(data: SignInForm):
+    email = data.email.strip().lower()
+    user = get_user_by_email(email)
+    if user is None or not is_correct_password(data.password, user.password_hash):
+        raise Exception()
     with Session(engine) as db:
-        statement = select(User).where(User.email == data.email).limit(1)
-        user = db.exec(statement).first()
-        if user is None or not is_correct_password(data.password, user.password_hash):
-            raise Exception()
         session_token = secrets.token_urlsafe(64)
         session_hash = hashlib.sha256(session_token.encode()).hexdigest()
         max_age = 60 * 5
@@ -113,18 +114,16 @@ async def get_sign_up(request: Request) -> HTMLResponse:
 async def sign_up(data: SignUpForm):
     if data.password != data.confirm:
         raise Exception()
+    email = data.email.strip().lower()
+    existing_user = get_user_by_email(email)
+    if existing_user is not None:
+        raise Exception()
+    username = data.username.strip()
+    existing_user = get_user_by_username(username)
+    if existing_user is not None:
+        raise Exception()
+    user = create_user(email, username, hash_password(data.password))
     with Session(engine) as db:
-        existing_user = select(User).where(User.email == data.email).limit(1)
-        if existing_user is not None:
-            raise Exception()
-        existing_user = select(User).where(User.username == data.username).limit(1)
-        if existing_user is not None:
-            raise Exception()
-        user = User(
-            email=data.email,
-            username=data.username,
-            password_hash=hash_password(data.password),
-        )
         session_token = secrets.token_urlsafe(64)
         session_hash = hashlib.sha256(session_token.encode()).hexdigest()
         max_age = 60 * 5
