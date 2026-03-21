@@ -1,5 +1,4 @@
 import pathlib
-from datetime import timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response, status
@@ -11,33 +10,32 @@ from medium.users.dependencies import get_user_repo
 from medium.users.repository import UserRepository
 from medium.users.schemas import UserSchema
 from medium.users.value_objects import Email, RawPassword, Username
-from medium.utils import now
 
 from .constants import (
     CSRF_KEY,
     REFRESH_KEY,
-    REFRESH_MAX_AGE,
     SESSION_KEY,
 )
 from .dependencies import (
     csrf_service,
     get_csrf,
     get_identity_service,
-    get_refresh_repo,
+    get_refresh_service,
     get_session_service,
     require_anon,
     require_auth,
     verify_csrf,
 )
-from .entity import (
-    UserRefreshToken,
-    generate_refresh_token,
+from .exceptions import PasswordMismatchException
+from .schemas import AuthPayload, SignInPayload, SignUpPayload
+from .services import (
+    CsrfService,
+    IdentityService,
+    RefreshTokenService,
+    SessionService,
+    create_access_token,
     hash_refresh_token,
 )
-from .exceptions import PasswordMismatchException
-from .repository import RefreshTokenRepository
-from .schemas import AuthPayload, SignInPayload, SignUpPayload
-from .services import CsrfService, IdentityService, SessionService, create_access_token
 from .types import SignInFormData, SignUpFormData
 from .utils import set_csrf_cookie, set_refresh_token_cookie, set_session_cookie
 from .value_objects import CsrfToken, RefreshToken, SessionToken
@@ -149,7 +147,7 @@ api_router = APIRouter()
 @api_router.post("/auth/refresh")
 async def api_refresh(
     response: Response,
-    refresh_repo: Annotated[RefreshTokenRepository, Depends(get_refresh_repo)],
+    refresh_service: Annotated[RefreshTokenService, Depends(get_refresh_service)],
     user_repo: Annotated[UserRepository, Depends(get_user_repo)],
     refresh_cookie: Annotated[str | None, Cookie(alias=REFRESH_KEY)] = None,
 ) -> AuthPayload:
@@ -160,20 +158,9 @@ async def api_refresh(
     user = user_repo.get(refresh_hash=refresh_hash)
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
-    refresh = refresh_repo.get(token_hash=refresh_hash)
-    if refresh is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
-    refresh.revoked_at = now()
-    refresh_repo.save(refresh)
+    refresh_service.revoke(refresh_hash)
     access = create_access_token(user)
-    refresh_token = generate_refresh_token()
-    refresh_hash = hash_refresh_token(refresh_token)
-    refresh = UserRefreshToken(
-        token_hash=refresh_hash,
-        user_id=user.id,
-        expires_at=now() + timedelta(seconds=REFRESH_MAX_AGE),
-    )
-    refresh = refresh_repo.add(refresh)
+    refresh_token = refresh_service.create(user)
     set_refresh_token_cookie(response, refresh_token)
     return AuthPayload(
         user=UserSchema(id=user.id.value, username=user.username.value),
@@ -186,20 +173,13 @@ async def api_sign_in(
     payload: SignInPayload,
     response: Response,
     identity: Annotated[IdentityService, Depends(get_identity_service)],
-    refresh_repo: Annotated[RefreshTokenRepository, Depends(get_refresh_repo)],
+    refresh_service: Annotated[RefreshTokenService, Depends(get_refresh_service)],
 ) -> AuthPayload:
     email = Email(payload.email.strip().lower())
     password = RawPassword(payload.password)
     user = identity.verify(email=email, password=password)
     access = create_access_token(user)
-    refresh_token = generate_refresh_token()
-    refresh_hash = hash_refresh_token(refresh_token)
-    refresh = UserRefreshToken(
-        token_hash=refresh_hash,
-        user_id=user.id,
-        expires_at=now() + timedelta(seconds=REFRESH_MAX_AGE),
-    )
-    refresh = refresh_repo.add(refresh)
+    refresh_token = refresh_service.create(user)
     set_refresh_token_cookie(response, refresh_token)
     return AuthPayload(
         user=UserSchema(id=user.id.value, username=user.username.value),
@@ -210,18 +190,14 @@ async def api_sign_in(
 @api_router.post("/auth/sign-out", dependencies=[Depends(require_auth)])
 async def api_sign_out(
     response: Response,
-    refresh_repo: Annotated[RefreshTokenRepository, Depends(get_refresh_repo)],
+    refresh_service: Annotated[RefreshTokenService, Depends(get_refresh_service)],
     refresh_cookie: Annotated[str | None, Cookie(alias=REFRESH_KEY)] = None,
 ):
     if refresh_cookie is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
     refresh_token = RefreshToken(refresh_cookie)
     refresh_hash = hash_refresh_token(refresh_token)
-    refresh = refresh_repo.get(token_hash=refresh_hash)
-    if refresh is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
-    refresh.revoked_at = now()
-    refresh_repo.save(refresh)
+    refresh_service.revoke(refresh_hash)
     response.delete_cookie(key=REFRESH_KEY, path="/api/auth/refresh")
     return response
 
@@ -231,7 +207,7 @@ async def api_sign_up(
     payload: SignUpPayload,
     response: Response,
     identity: Annotated[IdentityService, Depends(get_identity_service)],
-    refresh_repo: Annotated[RefreshTokenRepository, Depends(get_refresh_repo)],
+    refresh_service: Annotated[RefreshTokenService, Depends(get_refresh_service)],
 ) -> AuthPayload:
     if payload.password != payload.confirm:
         raise PasswordMismatchException()
@@ -240,14 +216,7 @@ async def api_sign_up(
     password = RawPassword(payload.password)
     user = identity.register(email=email, username=username, password=password)
     access = create_access_token(user)
-    refresh_token = generate_refresh_token()
-    refresh_hash = hash_refresh_token(refresh_token)
-    refresh = UserRefreshToken(
-        token_hash=refresh_hash,
-        user_id=user.id,
-        expires_at=now() + timedelta(seconds=REFRESH_MAX_AGE),
-    )
-    refresh = refresh_repo.add(refresh)
+    refresh_token = refresh_service.create(user)
     set_refresh_token_cookie(response, refresh_token)
     return AuthPayload(
         user=UserSchema(id=user.id.value, username=user.username.value),

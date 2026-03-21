@@ -1,13 +1,10 @@
-import hashlib
-import secrets
 from dataclasses import dataclass
 from datetime import datetime
 
 from medium.users.types import UserId
 from medium.users.value_objects import Username
 
-from .constants import REFRESH_BYTES
-from .value_objects import RefreshHash, RefreshToken, SessionHash
+from .value_objects import RefreshHash, SessionHash
 
 
 @dataclass(frozen=True)
@@ -22,17 +19,6 @@ class UserRefreshToken:
     user_id: UserId
     expires_at: datetime
     revoked_at: datetime | None = None
-
-
-def generate_refresh_token() -> RefreshToken:
-    token = secrets.token_urlsafe(REFRESH_BYTES)
-    return RefreshToken(token)
-
-
-def hash_refresh_token(token: RefreshToken) -> RefreshHash:
-    encoded = token.value.encode()
-    refresh_hash = hashlib.sha256(encoded).hexdigest()
-    return RefreshHash(refresh_hash)
 
 
 @dataclass

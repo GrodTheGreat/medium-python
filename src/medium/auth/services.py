@@ -20,14 +20,22 @@ from .constants import (
     ACCESS_ISSUER,
     ACCESS_SIGNING_KEY,
     CSRF_BYTES,
+    REFRESH_BYTES,
+    REFRESH_MAX_AGE,
     SEPARATOR,
     SESSION_BYTES,
     SESSION_MAX_AGE,
 )
-from .entity import CurrentUser, UserSession
+from .entity import CurrentUser, UserRefreshToken, UserSession
 from .exceptions import InvalidCredentialsException
-from .repository import SessionRepository
-from .value_objects import CsrfToken, SessionHash, SessionToken
+from .repository import RefreshTokenRepository, SessionRepository
+from .value_objects import (
+    CsrfToken,
+    RefreshHash,
+    RefreshToken,
+    SessionHash,
+    SessionToken,
+)
 
 
 def create_access_token(user: User) -> str:
@@ -110,14 +118,47 @@ class PasswordService:
             return False
 
 
+class RefreshTokenService:
+    def __init__(self, refresh_repo: RefreshTokenRepository) -> None:
+        self._refresh_repo = refresh_repo
+
+    def create(self, user: User | CurrentUser) -> RefreshToken:
+        token = _generate_refresh_token()
+        token_hash = hash_refresh_token(token=token)
+        refresh = UserRefreshToken(
+            token_hash=token_hash,
+            user_id=user.id,
+            expires_at=now() + timedelta(seconds=REFRESH_MAX_AGE),
+        )
+        self._refresh_repo.add(refresh)
+        return token
+
+    def revoke(self, token_hash: RefreshHash) -> None:
+        refresh = self._refresh_repo.get(token_hash=token_hash)
+        if refresh is not None:
+            refresh.revoked_at = now()
+            self._refresh_repo.save(refresh)
+
+
+def hash_refresh_token(token: RefreshToken) -> RefreshHash:
+    encoded = token.value.encode()
+    refresh_hash = hashlib.sha256(encoded).hexdigest()
+    return RefreshHash(refresh_hash)
+
+
+def _generate_refresh_token() -> RefreshToken:
+    token = secrets.token_urlsafe(REFRESH_BYTES)
+    return RefreshToken(token)
+
+
 class SessionService:
     def __init__(self, session_repo: SessionRepository) -> None:
         self._session_repo = session_repo
 
     # TODO: kinda want a better name for this...
     def create(self, user: User) -> SessionToken:
-        token = self._generate_token()
-        token_hash = self.hash_token(token)
+        token = _generate_session_token()
+        token_hash = hash_session_token(token)
         session = UserSession(
             token_hash,
             user.id,
@@ -127,24 +168,22 @@ class SessionService:
         return token
 
     def revoke(self, token: SessionToken) -> None:
-        token_hash = self.hash_token(token)
+        token_hash = hash_session_token(token)
         session = self._session_repo.get(session_hash=token_hash)
         if session is not None:
             session.revoked_at = now()
             self._session_repo.save(session)
 
-    # TODO: I am not thrilled with the static methods here, these should
-    # arguably be standard functions outside the class
-    @staticmethod
-    def hash_token(token: SessionToken) -> SessionHash:
-        encoded = token.value.encode()
-        session_hash = hashlib.sha256(encoded).hexdigest()
-        return SessionHash(session_hash)
 
-    @staticmethod
-    def _generate_token() -> SessionToken:
-        token = secrets.token_urlsafe(SESSION_BYTES)
-        return SessionToken(token)
+def hash_session_token(token: SessionToken) -> SessionHash:
+    encoded = token.value.encode()
+    session_hash = hashlib.sha256(encoded).hexdigest()
+    return SessionHash(session_hash)
+
+
+def _generate_session_token() -> SessionToken:
+    token = secrets.token_urlsafe(SESSION_BYTES)
+    return SessionToken(token)
 
 
 class IdentityService:

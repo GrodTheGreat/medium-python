@@ -21,8 +21,10 @@ from .services import (
     CsrfService,
     IdentityService,
     PasswordService,
+    RefreshTokenService,
     SessionService,
     decode_access_token,
+    hash_session_token,
 )
 from .value_objects import CsrfToken, SessionToken
 
@@ -37,6 +39,12 @@ def get_session_repo(db: Annotated[Session, Depends(get_db)]) -> SessionReposito
 
 def csrf_service() -> CsrfService:
     return CsrfService(CSRF_SIGNING_KEY)
+
+
+def get_refresh_service(
+    repo: Annotated[RefreshTokenRepository, Depends(get_refresh_repo)],
+) -> RefreshTokenService:
+    return RefreshTokenService(repo)
 
 
 def get_session_service(
@@ -94,7 +102,7 @@ def get_current_user(
     session_token = request.cookies.get(SESSION_KEY)
     if session_token is None:
         return None
-    session_hash = sessions.hash_token(SessionToken(session_token))
+    session_hash = hash_session_token(SessionToken(session_token))
     user = users.get(session_hash=session_hash)
     if user is None:
         return None
