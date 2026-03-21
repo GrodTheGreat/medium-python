@@ -20,9 +20,8 @@ from .constants import (
     XSRF_INPUT,
     XSRF_KEY,
 )
-from .entity import hash_session_token
 from .repository import RefreshTokenRepository, SessionRepository
-from .services import CsrfService, IdentityService, PasswordService
+from .services import CsrfService, IdentityService, PasswordService, SessionService
 from .value_objects import CsrfToken, SessionToken
 
 
@@ -36,6 +35,12 @@ def get_session_repo(db: Annotated[Session, Depends(get_db)]) -> SessionReposito
 
 def csrf_service() -> CsrfService:
     return CsrfService(CSRF_SIGNING_KEY)
+
+
+def get_session_service(
+    repo: Annotated[SessionRepository, Depends(get_session_repo)],
+) -> SessionService:
+    return SessionService(session_repo=repo)
 
 
 def get_identity_service(
@@ -79,6 +84,7 @@ async def verify_csrf(
 # unifies auth methods instead of returning a User object
 def get_current_user(
     request: Request,
+    sessions: Annotated[SessionService, Depends(get_session_service)],
     users: Annotated[UserRepository, Depends(get_user_repo)],
 ) -> User | None:
     access_token = request.headers.get("Authorization")
@@ -102,7 +108,7 @@ def get_current_user(
     session_token = request.cookies.get(SESSION_KEY)
     if session_token is None:
         return None
-    session_hash = hash_session_token(SessionToken(session_token))
+    session_hash = sessions.hash_token(SessionToken(session_token))
     return users.get(session_hash=session_hash)
 
 

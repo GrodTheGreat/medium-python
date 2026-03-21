@@ -1,18 +1,22 @@
 import hashlib
 import hmac
 import secrets
+from datetime import timedelta
 
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerificationError, VerifyMismatchError
 
-from medium.auth.exceptions import InvalidCredentialsException
 from medium.users.entity import NewUser, User
 from medium.users.exceptions import EmailConflictException, UsernameConflictException
 from medium.users.repository import UserRepository
 from medium.users.value_objects import Email, HashedPassword, RawPassword, Username
+from medium.utils import now
 
-from .constants import CSRF_BYTES, SEPARATOR
-from .value_objects import CsrfToken
+from .constants import CSRF_BYTES, SEPARATOR, SESSION_BYTES, SESSION_MAX_AGE
+from .entity import UserSession
+from .exceptions import InvalidCredentialsException
+from .repository import SessionRepository
+from .value_objects import CsrfToken, SessionHash, SessionToken
 
 
 class CsrfService:
@@ -58,6 +62,43 @@ class PasswordService:
             return self._hasher.verify(hashed_password.value, password.value)
         except (InvalidHashError, VerificationError, VerifyMismatchError):
             return False
+
+
+class SessionService:
+    def __init__(self, session_repo: SessionRepository) -> None:
+        self._session_repo = session_repo
+
+    # TODO: kinda want a better name for this...
+    def create(self, user: User) -> SessionToken:
+        token = self._generate_token()
+        token_hash = self.hash_token(token)
+        session = UserSession(
+            token_hash,
+            user.id,
+            expires_at=now() + timedelta(seconds=SESSION_MAX_AGE),
+        )
+        self._session_repo.add(session)
+        return token
+
+    def revoke(self, token: SessionToken) -> None:
+        token_hash = self.hash_token(token)
+        session = self._session_repo.get(session_hash=token_hash)
+        if session is not None:
+            session.revoked_at = now()
+            self._session_repo.save(session)
+
+    # TODO: I am not thrilled with the static methods here, these should
+    # arguably be standard functions outside the class
+    @staticmethod
+    def hash_token(token: SessionToken) -> SessionHash:
+        encoded = token.value.encode()
+        session_hash = hashlib.sha256(encoded).hexdigest()
+        return SessionHash(session_hash)
+
+    @staticmethod
+    def _generate_token() -> SessionToken:
+        token = secrets.token_urlsafe(SESSION_BYTES)
+        return SessionToken(token)
 
 
 class IdentityService:

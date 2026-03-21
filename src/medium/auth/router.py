@@ -23,30 +23,26 @@ from .constants import (
     REFRESH_KEY,
     REFRESH_MAX_AGE,
     SESSION_KEY,
-    SESSION_MAX_AGE,
 )
 from .dependencies import (
     csrf_service,
     get_csrf,
     get_identity_service,
     get_refresh_repo,
-    get_session_repo,
+    get_session_service,
     require_anon,
     require_auth,
     verify_csrf,
 )
 from .entity import (
     UserRefreshToken,
-    UserSession,
     generate_refresh_token,
-    generate_session_token,
     hash_refresh_token,
-    hash_session_token,
 )
 from .exceptions import PasswordMismatchException
-from .repository import RefreshTokenRepository, SessionRepository
+from .repository import RefreshTokenRepository
 from .schemas import AuthPayload, SignInPayload, SignUpPayload
-from .services import CsrfService, IdentityService
+from .services import CsrfService, IdentityService, SessionService
 from .types import SignInFormData, SignUpFormData
 from .utils import set_csrf_cookie, set_refresh_token_cookie, set_session_cookie
 from .value_objects import CsrfToken, RefreshToken, SessionToken
@@ -77,19 +73,12 @@ async def sign_in(
     data: SignInFormData,
     identity: Annotated[IdentityService, Depends(get_identity_service)],
     service: Annotated[CsrfService, Depends(csrf_service)],
-    session_repo: Annotated[SessionRepository, Depends(get_session_repo)],
+    sessions: Annotated[SessionService, Depends(get_session_service)],
 ):
     email = Email(data.email.strip().lower())
     password = RawPassword(data.password)
     user = identity.verify(email=email, password=password)
-    session_token = generate_session_token()
-    session_hash = hash_session_token(session_token)
-    session = UserSession(
-        session_hash,
-        user.id,
-        expires_at=now() + timedelta(seconds=SESSION_MAX_AGE),
-    )
-    session_repo.add(session)
+    session_token = sessions.create(user)
     csrf_token = service.generate_token()
     response = RedirectResponse("/", status_code=status.HTTP_302_FOUND)
     set_session_cookie(response, session_token)
@@ -114,14 +103,10 @@ async def get_sign_out(
 )
 async def sign_out(
     session_cookie: Annotated[str, Cookie(alias=SESSION_KEY)],
-    sessions: Annotated[SessionRepository, Depends(get_session_repo)],
+    sessions: Annotated[SessionService, Depends(get_session_service)],
 ) -> RedirectResponse:
     session_token = SessionToken(session_cookie)
-    session_hash = hash_session_token(session_token)
-    session = sessions.get(session_hash=session_hash)
-    if session is not None:
-        session.revoked_at = now()
-        sessions.save(session)
+    sessions.revoke(session_token)
     response = RedirectResponse("/", status_code=status.HTTP_302_FOUND)
     response.delete_cookie(key=SESSION_KEY)
     response.delete_cookie(key=CSRF_KEY)
@@ -147,7 +132,7 @@ async def sign_up(
     data: SignUpFormData,
     identity: Annotated[IdentityService, Depends(get_identity_service)],
     service: Annotated[CsrfService, Depends(csrf_service)],
-    session_repo: Annotated[SessionRepository, Depends(get_session_repo)],
+    sessions: Annotated[SessionService, Depends(get_session_service)],
 ):
     if data.password != data.confirm:
         raise PasswordMismatchException()
@@ -155,14 +140,7 @@ async def sign_up(
     username = Username(data.username.strip().lower())
     password = RawPassword(data.password)
     user = identity.register(email=email, username=username, password=password)
-    session_token = generate_session_token()
-    session_hash = hash_session_token(session_token)
-    session = UserSession(
-        session_hash,
-        user.id,
-        expires_at=now() + timedelta(seconds=SESSION_MAX_AGE),
-    )
-    session_repo.add(session)
+    session_token = sessions.create(user)
     csrf_token = service.generate_token()
     response = RedirectResponse("/", status_code=status.HTTP_302_FOUND)
     set_session_cookie(response, session_token)
