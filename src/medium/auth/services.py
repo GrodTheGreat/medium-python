@@ -6,9 +6,10 @@ from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerificationError, VerifyMismatchError
 
 from medium.auth.exceptions import InvalidCredentialsException
-from medium.users.entity import User
+from medium.users.entity import NewUser, User
+from medium.users.exceptions import EmailConflictException, UsernameConflictException
 from medium.users.repository import UserRepository
-from medium.users.value_objects import Email, HashedPassword, RawPassword
+from medium.users.value_objects import Email, HashedPassword, RawPassword, Username
 
 from .constants import CSRF_BYTES, SEPARATOR
 from .value_objects import CsrfToken
@@ -72,3 +73,14 @@ class IdentityService:
         ):
             raise InvalidCredentialsException()
         return user
+
+    def register(self, email: Email, username: Username, password: RawPassword) -> User:
+        existing_user = self._users.get(email=email)
+        if existing_user:
+            raise EmailConflictException()
+        existing_user = self._users.get(username=username)
+        if existing_user:
+            raise UsernameConflictException()
+        password_hash = self._passwords.hash_password(password)
+        new_user = NewUser(email=email, username=username, password_hash=password_hash)
+        return self._users.add(new_user)

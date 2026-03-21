@@ -10,8 +10,6 @@ from fastapi.templating import Jinja2Templates
 from starlette.responses import RedirectResponse
 
 from medium.users.dependencies import get_user_repo
-from medium.users.entity import NewUser
-from medium.users.exceptions import EmailConflictException, UsernameConflictException
 from medium.users.repository import UserRepository
 from medium.users.schemas import UserSchema
 from medium.users.value_objects import Email, RawPassword, Username
@@ -48,7 +46,7 @@ from .entity import (
 from .exceptions import PasswordMismatchException
 from .repository import RefreshTokenRepository, SessionRepository
 from .schemas import AuthPayload, SignInPayload, SignUpPayload
-from .services import CsrfService, IdentityService, PasswordService
+from .services import CsrfService, IdentityService
 from .types import SignInFormData, SignUpFormData
 from .utils import set_csrf_cookie, set_refresh_token_cookie, set_session_cookie
 from .value_objects import CsrfToken, RefreshToken, SessionToken
@@ -99,57 +97,6 @@ async def sign_in(
     return response
 
 
-@auth_router.get("/sign-up", dependencies=[Depends(require_anon)])
-async def get_sign_up(
-    request: Request,
-    csrf: Annotated[CsrfToken, Depends(get_csrf)],
-) -> HTMLResponse:
-    context = {"csrf": csrf.value}
-    response = templates.TemplateResponse(request, "sign-up.html", context)
-    set_csrf_cookie(response, csrf)
-    return response
-
-
-@auth_router.post(
-    "/sign-up",
-    dependencies=[Depends(verify_csrf), Depends(require_anon)],
-)
-async def sign_up(
-    data: SignUpFormData,
-    service: Annotated[CsrfService, Depends(csrf_service)],
-    session_repo: Annotated[SessionRepository, Depends(get_session_repo)],
-    user_repo: Annotated[UserRepository, Depends(get_user_repo)],
-):
-    if data.password != data.confirm:
-        raise PasswordMismatchException()
-    email = Email(data.email.strip().lower())
-    username = Username(data.username.strip().lower())
-    password = RawPassword(data.password)
-    existing_user = user_repo.get(email=email)
-    if existing_user:
-        raise EmailConflictException()
-    existing_user = user_repo.get(username=username)
-    if existing_user:
-        raise UsernameConflictException()
-    passwords = PasswordService()
-    password_hash = passwords.hash_password(password)
-    new_user = NewUser(email=email, username=username, password_hash=password_hash)
-    user = user_repo.add(new_user)
-    session_token = generate_session_token()
-    session_hash = hash_session_token(session_token)
-    session = UserSession(
-        session_hash,
-        user.id,
-        expires_at=now() + timedelta(seconds=SESSION_MAX_AGE),
-    )
-    session_repo.add(session)
-    csrf_token = service.generate_token()
-    response = RedirectResponse("/", status_code=status.HTTP_302_FOUND)
-    set_session_cookie(response, session_token)
-    set_csrf_cookie(response, csrf_token)
-    return response
-
-
 @auth_router.get("/sign-out", dependencies=[Depends(require_auth)])
 async def get_sign_out(
     request: Request,
@@ -178,6 +125,48 @@ async def sign_out(
     response = RedirectResponse("/", status_code=status.HTTP_302_FOUND)
     response.delete_cookie(key=SESSION_KEY)
     response.delete_cookie(key=CSRF_KEY)
+    return response
+
+
+@auth_router.get("/sign-up", dependencies=[Depends(require_anon)])
+async def get_sign_up(
+    request: Request,
+    csrf: Annotated[CsrfToken, Depends(get_csrf)],
+) -> HTMLResponse:
+    context = {"csrf": csrf.value}
+    response = templates.TemplateResponse(request, "sign-up.html", context)
+    set_csrf_cookie(response, csrf)
+    return response
+
+
+@auth_router.post(
+    "/sign-up",
+    dependencies=[Depends(verify_csrf), Depends(require_anon)],
+)
+async def sign_up(
+    data: SignUpFormData,
+    identity: Annotated[IdentityService, Depends(get_identity_service)],
+    service: Annotated[CsrfService, Depends(csrf_service)],
+    session_repo: Annotated[SessionRepository, Depends(get_session_repo)],
+):
+    if data.password != data.confirm:
+        raise PasswordMismatchException()
+    email = Email(data.email.strip().lower())
+    username = Username(data.username.strip().lower())
+    password = RawPassword(data.password)
+    user = identity.register(email=email, username=username, password=password)
+    session_token = generate_session_token()
+    session_hash = hash_session_token(session_token)
+    session = UserSession(
+        session_hash,
+        user.id,
+        expires_at=now() + timedelta(seconds=SESSION_MAX_AGE),
+    )
+    session_repo.add(session)
+    csrf_token = service.generate_token()
+    response = RedirectResponse("/", status_code=status.HTTP_302_FOUND)
+    set_session_cookie(response, session_token)
+    set_csrf_cookie(response, csrf_token)
     return response
 
 
@@ -232,7 +221,7 @@ async def api_refresh(
     )
 
 
-@api_router.post("/auth/sign-in")
+@api_router.post("/auth/sign-in", dependencies=[Depends(require_anon)])
 async def api_sign_in(
     payload: SignInPayload,
     response: Response,
@@ -290,28 +279,19 @@ async def api_sign_out(
     return response
 
 
-@api_router.post("/auth/sign-up")
+@api_router.post("/auth/sign-up", dependencies=[Depends(require_anon)])
 async def api_sign_up(
     payload: SignUpPayload,
     response: Response,
+    identity: Annotated[IdentityService, Depends(get_identity_service)],
     refresh_repo: Annotated[RefreshTokenRepository, Depends(get_refresh_repo)],
-    user_repo: Annotated[UserRepository, Depends(get_user_repo)],
 ) -> AuthPayload:
     if payload.password != payload.confirm:
         raise PasswordMismatchException()
     email = Email(payload.email.strip().lower())
     username = Username(payload.username.strip().lower())
     password = RawPassword(payload.password)
-    existing_user = user_repo.get(email=email)
-    if existing_user:
-        raise EmailConflictException()
-    existing_user = user_repo.get(username=username)
-    if existing_user:
-        raise UsernameConflictException()
-    passwords = PasswordService()
-    password_hash = passwords.hash_password(password)
-    new_user = NewUser(email=email, username=username, password_hash=password_hash)
-    user = user_repo.add(new_user)
+    user = identity.register(email=email, username=username, password=password)
     current_timestamp = now()
     access = jwt.encode(
         {
