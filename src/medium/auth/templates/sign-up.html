@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="description" content="">
+        <meta name="keywords" content="">
+        <meta name="viewport"
+              content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+        <meta http-equiv="X-UA-Compatible" content="ie=edge">
+        <title>Sign up</title>
+    </head>
+    <body>
+        <div>
+            <form action="{{ url_for("sign_up") }}" method="post">
+                {% if errors and errors.form %}
+                    <div>
+                        {% if errors.form|length > 1 %}
+                            <ul>
+                                {% for error in errors.form %}<li>{{ error }}</li>{% endfor %}
+                            </ul>
+                        {% else %}
+                            <span>{{ errors.form[0] }}</span>
+                        {% endif %}
+                    </div>
+                {% endif %}
+                <div>
+                    <input type="hidden" name="xsrf" value="{{ csrf }}">
+                </div>
+                <div class="form-group">
+                    {% if errors and errors.email and errors.email|length > 1 %}
+                        <ul>
+                            {% for error in errors.email %}<li>{{ error }}</li>{% endfor %}
+                        </ul>
+                    {% endif %}
+                    <label for="email">Email</label>
+                    <input type="email"
+                           name="email"
+                           id="email"
+                           required
+                           autocomplete="email"
+                           value="{{ email }}">
+                    {% if errors and errors.email and errors.email|length == 1 %}<span>{{ errors.email[0] }}</span>{% endif %}
+                </div>
+                <div class="form-group">
+                    {% if errors and errors.username and errors.username|length > 1 %}
+                        <ul>
+                            {% for error in errors.username %}<li>{{ error }}</li>{% endfor %}
+                        </ul>
+                    {% endif %}
+                    <label for="username">Username</label>
+                    <input type="text"
+                           name="username"
+                           id="username"
+                           required
+                           autocomplete="username"
+                           value="{{ username }}">
+                    {% if errors and errors.username and errors.username|length == 1 %}<span>{{ errors.username[0] }}</span>{% endif %}
+                </div>
+                <div class="form-group">
+                    {% if errors and errors.password and errors.password|length > 1 %}
+                        <ul>
+                            {% for error in errors.password %}<li>{{ error }}</li>{% endfor %}
+                        </ul>
+                    {% endif %}
+                    <label for="password">Password</label>
+                    <input type="password"
+                           name="password"
+                           id="password"
+                           required
+                           autocomplete="new-password"
+                           value="{{ password }}">
+                    {% if errors and errors.password and errors.password|length == 1 %}<span>{{ errors.password[0] }}</span>{% endif %}
+                </div>
+                <div class="form-group">
+                    {% if errors and errors.confirm and errors.confirm|length > 1 %}
+                        <ul>
+                            {% for error in errors.confirm %}<li>{{ error }}</li>{% endfor %}
+                        </ul>
+                    {% endif %}
+                    <label for="confirm">Confirm password</label>
+                    <input type="password"
+                           name="confirm"
+                           id="confirm"
+                           required
+                           value="{{ confirm }}">
+                    {% if errors and errors.confirm and errors.confirm|length == 1 %}<span>{{ errors.confirm[0] }}</span>{% endif %}
+                </div>
+                <div>
+                    <button type="submit">Sign up</button>
+                </div>
+            </form>
+            <p>
+                Already have an account? <a href="{{ url_for("get_sign_in") }}">Sign In</a>
+            </p>
+        </div>
+    </body>
+</html>

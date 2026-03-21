@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="description" content="">
+        <meta name="keywords" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Title</title>
+    </head>
+    <body>
+        <div>
+            <nav>
+                {% if current_user is none %}
+                    <a href="{{ url_for("get_sign_in") }}">Sign in</a>
+                    <a href="{{ url_for("get_sign_up") }}">Sign up</a>
+                {% else %}
+                    <a href="{{ url_for("get_sign_out") }}">Sign out</a>
+                {% endif %}
+            </nav>
+            <div>Index</div>
+            <p>
+                {% if current_user is none %}
+                    Welcome guest!
+                {% else %}
+                    Welcome {{ current_user.username.value }}!
+                {% endif %}
+            </p>
+        </div>
+    </body>
+</html>
