@@ -14,12 +14,24 @@ from medium.auth.exceptions import (
 )
 from medium.auth.router import api_router, auth_router
 from medium.users.entity import User
+from medium.users.exceptions import EmailConflictException, UsernameConflictException
 
 BASE_DIR = pathlib.Path(__file__).resolve().parent
 TEMPLATES_DIR = BASE_DIR / "templates"
 
 app = FastAPI()
 templates = Jinja2Templates(TEMPLATES_DIR)
+
+
+@app.exception_handler(EmailConflictException)
+async def email_conflict_exception_handler(
+    _: Request,
+    exc: EmailConflictException,
+) -> JSONResponse:
+    return JSONResponse(
+        content={"message": exc.message},
+        status_code=status.HTTP_409_CONFLICT,
+    )
 
 
 @app.exception_handler(InvalidCredentialsException)
@@ -40,6 +52,17 @@ async def password_mismatch_exception_handler(
     return JSONResponse(
         content={"message": exc.message},
         status_code=status.HTTP_400_BAD_REQUEST,
+    )
+
+
+@app.exception_handler(UsernameConflictException)
+async def username_conflict_exception_handler(
+    _: Request,
+    exc: UsernameConflictException,
+) -> JSONResponse:
+    return JSONResponse(
+        content={"message": exc.message},
+        status_code=status.HTTP_409_CONFLICT,
     )
 
 
