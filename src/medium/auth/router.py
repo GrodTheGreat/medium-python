@@ -9,7 +9,6 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from starlette.responses import RedirectResponse
 
-from medium.auth.value_objects import CsrfToken, RefreshToken, SessionToken
 from medium.users.dependencies import get_user_repo
 from medium.users.entity import NewUser
 from medium.users.exceptions import EmailConflictException, UsernameConflictException
@@ -52,6 +51,7 @@ from .schemas import AuthPayload, SignInPayload, SignUpPayload
 from .services import CsrfService, IdentityService, PasswordService
 from .types import SignInFormData, SignUpFormData
 from .utils import set_csrf_cookie, set_refresh_token_cookie, set_session_cookie
+from .value_objects import CsrfToken, RefreshToken, SessionToken
 
 BASE_DIR = pathlib.Path(__file__).resolve().parent
 TEMPLATES_DIR = BASE_DIR / "templates"

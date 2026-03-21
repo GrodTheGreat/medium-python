@@ -3,11 +3,12 @@ import time
 from typing import Annotated, Callable
 from uuid import uuid4
 
-from fastapi import Depends, FastAPI, Request, Response
-from fastapi.responses import HTMLResponse
+from fastapi import Depends, FastAPI, Request, Response, status
+from fastapi.responses import HTMLResponse, JSONResponse
 from starlette.templating import Jinja2Templates
 
 from medium.auth.dependencies import get_current_user
+from medium.auth.exceptions import InvalidCredentialsException
 from medium.auth.router import api_router, auth_router
 from medium.users.entity import User
 
@@ -16,6 +17,17 @@ TEMPLATES_DIR = BASE_DIR / "templates"
 
 app = FastAPI()
 templates = Jinja2Templates(TEMPLATES_DIR)
+
+
+@app.exception_handler(InvalidCredentialsException)
+async def invalid_credentials_exception_handler(
+    _: Request,
+    exc: InvalidCredentialsException,
+) -> JSONResponse:
+    return JSONResponse(
+        content={"message": exc.message},
+        status_code=status.HTTP_401_UNAUTHORIZED,
+    )
 
 
 @app.middleware("http")
