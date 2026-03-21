@@ -7,10 +7,20 @@ class CsrfToken:
 
 
 @dataclass(frozen=True)
-class SessionToken:
+class RefreshHash:
+    value: str
+
+
+@dataclass(frozen=True)
+class RefreshToken:
     value: str
 
 
 @dataclass(frozen=True)
 class SessionHash:
+    value: str
+
+
+@dataclass(frozen=True)
+class SessionToken:
     value: str

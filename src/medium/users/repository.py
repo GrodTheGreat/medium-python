@@ -1,7 +1,9 @@
-from sqlmodel import Session, select
+from sqlmodel import Session, col, select
 
-from ..auth.records import UserSessionRecord
-from ..auth.value_objects import SessionHash
+from medium.auth.records import RefreshTokenRecord, UserSessionRecord
+from medium.auth.value_objects import RefreshHash, SessionHash
+from medium.utils import now
+
 from .entity import NewUser, User
 from .record import UserRecord
 from .types import UserId
@@ -29,12 +31,21 @@ class UserRepository:
         user_id: UserId | None = None,
         email: Email | None = None,
         username: Username | None = None,
+        refresh_hash: RefreshHash | None = None,
         session_hash: SessionHash | None = None,
     ) -> User | None:
         statement = select(UserRecord)
         if session_hash:
             statement = statement.join(UserSessionRecord).where(
-                UserSessionRecord.session_hash == session_hash.value
+                UserSessionRecord.session_hash == session_hash.value,
+                UserSessionRecord.expires_at > now(),
+                col(UserSessionRecord.revoked_at).is_(None),
+            )
+        if refresh_hash:
+            statement = statement.join(RefreshTokenRecord).where(
+                RefreshTokenRecord.token_hash == refresh_hash.value,
+                RefreshTokenRecord.expires_at > now(),
+                col(RefreshTokenRecord.revoked_at).is_(None),
             )
         if user_id:
             statement = statement.where(UserRecord.id == user_id.value)

@@ -1,4 +1,10 @@
 from medium.schemas import BaseSchema
+from medium.users.schemas import UserSchema
+
+
+class AuthPayload(BaseSchema):
+    user: UserSchema
+    access: str
 
 
 class SignInForm(BaseSchema):

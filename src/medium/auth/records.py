@@ -8,12 +8,17 @@ if TYPE_CHECKING:
 
 
 class RefreshTokenRecord(SQLModel, table=True):
+    __tablename__ = "refresh_token"
+
     token_hash: str = Field(primary_key=True)
     user_id: int | None = Field(
-        default=None, primary_key=True, foreign_key="user.id", index=True
+        default=None,
+        primary_key=True,
+        foreign_key="user.id",
+        index=True,
     )
     expires_at: datetime
-    revoked_at: datetime
+    revoked_at: datetime | None = Field(default=None, nullable=True, index=True)
 
     user: Optional["UserRecord"] = Relationship(back_populates="refresh_tokens")
 

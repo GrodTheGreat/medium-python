@@ -11,7 +11,7 @@
     </head>
     <body>
         <div>
-            <form action="{{ url_for("get_sign_in") }}" method="post">
+            <form action="{{ url_for("sign_in") }}" method="post">
                 {% if errors and errors.form %}
                     <div>
                         {% if errors.form|length > 1 %}
