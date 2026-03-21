@@ -8,7 +8,10 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from starlette.templating import Jinja2Templates
 
 from medium.auth.dependencies import get_current_user
-from medium.auth.exceptions import InvalidCredentialsException
+from medium.auth.exceptions import (
+    InvalidCredentialsException,
+    PasswordMismatchException,
+)
 from medium.auth.router import api_router, auth_router
 from medium.users.entity import User
 
@@ -27,6 +30,16 @@ async def invalid_credentials_exception_handler(
     return JSONResponse(
         content={"message": exc.message},
         status_code=status.HTTP_401_UNAUTHORIZED,
+    )
+
+
+@app.exception_handler(PasswordMismatchException)
+async def password_mismatch_exception_handler(
+    _: Request, exc: PasswordMismatchException
+) -> JSONResponse:
+    return JSONResponse(
+        content={"message": exc.message},
+        status_code=status.HTTP_400_BAD_REQUEST,
     )
 
 
