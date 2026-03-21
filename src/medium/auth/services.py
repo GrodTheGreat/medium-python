@@ -2,21 +2,67 @@ import hashlib
 import hmac
 import secrets
 from datetime import timedelta
+from uuid import uuid4
 
+import jwt
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerificationError, VerifyMismatchError
 
 from medium.users.entity import NewUser, User
 from medium.users.exceptions import EmailConflictException, UsernameConflictException
 from medium.users.repository import UserRepository
+from medium.users.types import UserId
 from medium.users.value_objects import Email, HashedPassword, RawPassword, Username
 from medium.utils import now
 
-from .constants import CSRF_BYTES, SEPARATOR, SESSION_BYTES, SESSION_MAX_AGE
-from .entity import UserSession
+from .constants import (
+    ACCESS_AUDIENCE,
+    ACCESS_ISSUER,
+    ACCESS_SIGNING_KEY,
+    CSRF_BYTES,
+    SEPARATOR,
+    SESSION_BYTES,
+    SESSION_MAX_AGE,
+)
+from .entity import CurrentUser, UserSession
 from .exceptions import InvalidCredentialsException
 from .repository import SessionRepository
 from .value_objects import CsrfToken, SessionHash, SessionToken
+
+
+def create_access_token(user: User) -> str:
+    current_timestamp = now()
+    return jwt.encode(
+        {
+            "exp": current_timestamp + timedelta(minutes=15),
+            "iss": ACCESS_ISSUER,
+            "aud": ACCESS_AUDIENCE,
+            "iat": current_timestamp,
+            "sub": user.id.value,
+            "jti": str(uuid4()),
+            "username": user.username.value,
+        },
+        ACCESS_SIGNING_KEY,
+        algorithm="HS256",
+    )
+
+
+def decode_access_token(token: str) -> CurrentUser | None:
+    try:
+        payload = jwt.decode(
+            token,
+            key=ACCESS_SIGNING_KEY,
+            algorithms=["HS256"],
+            issuer=ACCESS_ISSUER,
+            audience=ACCESS_AUDIENCE,
+        )
+    except jwt.PyJWTError:
+        return None
+    user_id = payload.get("sub")
+    username = payload.get("username")
+    if user_id is None or username is None:
+        raise Exception()
+    return CurrentUser(id=UserId(user_id), username=Username(username))
 
 
 class CsrfService:

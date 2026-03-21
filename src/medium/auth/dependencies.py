@@ -1,19 +1,15 @@
 from typing import Annotated
 
-import jwt
 from fastapi import Cookie, Depends, Header, HTTPException, Request, status
 from sqlmodel import Session
 
+from medium.auth.entity import CurrentUser
 from medium.dependencies import get_db
 from medium.users.dependencies import get_user_repo
 from medium.users.entity import User
 from medium.users.repository import UserRepository
-from medium.users.types import UserId
 
 from .constants import (
-    ACCESS_AUDIENCE,
-    ACCESS_ISSUER,
-    ACCESS_SIGNING_KEY,
     CSRF_KEY,
     CSRF_SIGNING_KEY,
     SESSION_KEY,
@@ -21,7 +17,13 @@ from .constants import (
     XSRF_KEY,
 )
 from .repository import RefreshTokenRepository, SessionRepository
-from .services import CsrfService, IdentityService, PasswordService, SessionService
+from .services import (
+    CsrfService,
+    IdentityService,
+    PasswordService,
+    SessionService,
+    decode_access_token,
+)
 from .value_objects import CsrfToken, SessionToken
 
 
@@ -80,36 +82,23 @@ async def verify_csrf(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
 
 
-# TODO: Would probably be better to have a simplified "CurrentUser" object that
-# unifies auth methods instead of returning a User object
 def get_current_user(
     request: Request,
     sessions: Annotated[SessionService, Depends(get_session_service)],
     users: Annotated[UserRepository, Depends(get_user_repo)],
-) -> User | None:
+) -> CurrentUser | None:
     access_token = request.headers.get("Authorization")
     if access_token:
         token = access_token.removeprefix("Bearer ")
-        try:
-            payload = jwt.decode(
-                token,
-                key=ACCESS_SIGNING_KEY,
-                algorithms=["HS256"],
-                issuer=ACCESS_ISSUER,
-                audience=ACCESS_AUDIENCE,
-            )
-        except jwt.PyJWTError:
-            return None
-        user_id: int | None = payload.get("sub")
-        if user_id is None:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
-        # TODO: This is dumb because the point of the access token is we don't need a db hit, but I am keeping it for now
-        return users.get(user_id=UserId(user_id))
+        return decode_access_token(token)
     session_token = request.cookies.get(SESSION_KEY)
     if session_token is None:
         return None
     session_hash = sessions.hash_token(SessionToken(session_token))
-    return users.get(session_hash=session_hash)
+    user = users.get(session_hash=session_hash)
+    if user is None:
+        return None
+    return CurrentUser(id=user.id, username=user.username)
 
 
 def require_anon(user: Annotated[User | None, Depends(get_current_user)]) -> None:

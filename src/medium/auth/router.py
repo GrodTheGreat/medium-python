@@ -1,9 +1,7 @@
 import pathlib
 from datetime import timedelta
 from typing import Annotated
-from uuid import uuid4
 
-import jwt
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response, status
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
@@ -16,9 +14,6 @@ from medium.users.value_objects import Email, RawPassword, Username
 from medium.utils import now
 
 from .constants import (
-    ACCESS_AUDIENCE,
-    ACCESS_ISSUER,
-    ACCESS_SIGNING_KEY,
     CSRF_KEY,
     REFRESH_KEY,
     REFRESH_MAX_AGE,
@@ -42,7 +37,7 @@ from .entity import (
 from .exceptions import PasswordMismatchException
 from .repository import RefreshTokenRepository
 from .schemas import AuthPayload, SignInPayload, SignUpPayload
-from .services import CsrfService, IdentityService, SessionService
+from .services import CsrfService, IdentityService, SessionService, create_access_token
 from .types import SignInFormData, SignUpFormData
 from .utils import set_csrf_cookie, set_refresh_token_cookie, set_session_cookie
 from .value_objects import CsrfToken, RefreshToken, SessionToken
@@ -170,26 +165,13 @@ async def api_refresh(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
     refresh.revoked_at = now()
     refresh_repo.save(refresh)
-    current_timestamp = now()
-    access = jwt.encode(
-        {
-            "exp": current_timestamp + timedelta(minutes=15),
-            "iss": ACCESS_ISSUER,
-            "aud": ACCESS_AUDIENCE,
-            "iat": current_timestamp,
-            "sub": user.id.value,
-            "jti": str(uuid4()),
-            "username": user.username.value,
-        },
-        ACCESS_SIGNING_KEY,
-        algorithm="HS256",
-    )
+    access = create_access_token(user)
     refresh_token = generate_refresh_token()
     refresh_hash = hash_refresh_token(refresh_token)
     refresh = UserRefreshToken(
         token_hash=refresh_hash,
         user_id=user.id,
-        expires_at=current_timestamp + timedelta(seconds=REFRESH_MAX_AGE),
+        expires_at=now() + timedelta(seconds=REFRESH_MAX_AGE),
     )
     refresh = refresh_repo.add(refresh)
     set_refresh_token_cookie(response, refresh_token)
@@ -209,26 +191,13 @@ async def api_sign_in(
     email = Email(payload.email.strip().lower())
     password = RawPassword(payload.password)
     user = identity.verify(email=email, password=password)
-    current_timestamp = now()
-    access = jwt.encode(
-        {
-            "exp": current_timestamp + timedelta(minutes=15),
-            "iss": ACCESS_ISSUER,
-            "aud": ACCESS_AUDIENCE,
-            "iat": current_timestamp,
-            "sub": user.id.value,
-            "jti": str(uuid4()),
-            "username": user.username.value,
-        },
-        ACCESS_SIGNING_KEY,
-        algorithm="HS256",
-    )
+    access = create_access_token(user)
     refresh_token = generate_refresh_token()
     refresh_hash = hash_refresh_token(refresh_token)
     refresh = UserRefreshToken(
         token_hash=refresh_hash,
         user_id=user.id,
-        expires_at=current_timestamp + timedelta(seconds=REFRESH_MAX_AGE),
+        expires_at=now() + timedelta(seconds=REFRESH_MAX_AGE),
     )
     refresh = refresh_repo.add(refresh)
     set_refresh_token_cookie(response, refresh_token)
@@ -270,26 +239,13 @@ async def api_sign_up(
     username = Username(payload.username.strip().lower())
     password = RawPassword(payload.password)
     user = identity.register(email=email, username=username, password=password)
-    current_timestamp = now()
-    access = jwt.encode(
-        {
-            "exp": current_timestamp + timedelta(minutes=15),
-            "iss": ACCESS_ISSUER,
-            "aud": ACCESS_AUDIENCE,
-            "iat": current_timestamp,
-            "sub": user.id.value,
-            "jti": str(uuid4()),
-            "username": user.username.value,
-        },
-        ACCESS_SIGNING_KEY,
-        algorithm="HS256",
-    )
+    access = create_access_token(user)
     refresh_token = generate_refresh_token()
     refresh_hash = hash_refresh_token(refresh_token)
     refresh = UserRefreshToken(
         token_hash=refresh_hash,
         user_id=user.id,
-        expires_at=current_timestamp + timedelta(seconds=REFRESH_MAX_AGE),
+        expires_at=now() + timedelta(seconds=REFRESH_MAX_AGE),
     )
     refresh = refresh_repo.add(refresh)
     set_refresh_token_cookie(response, refresh_token)

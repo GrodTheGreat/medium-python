@@ -4,9 +4,16 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from medium.users.types import UserId
+from medium.users.value_objects import Username
 
 from .constants import REFRESH_BYTES
 from .value_objects import RefreshHash, RefreshToken, SessionHash
+
+
+@dataclass(frozen=True)
+class CurrentUser:
+    id: UserId
+    username: Username
 
 
 @dataclass
