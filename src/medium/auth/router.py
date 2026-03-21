@@ -31,6 +31,7 @@ from .constants import (
 from .dependencies import (
     csrf_service,
     get_csrf,
+    get_identity_service,
     get_refresh_repo,
     get_session_repo,
     require_anon,
@@ -45,10 +46,10 @@ from .entity import (
     hash_refresh_token,
     hash_session_token,
 )
-from .exceptions import InvalidCredentialsException, PasswordMismatchException
+from .exceptions import PasswordMismatchException
 from .repository import RefreshTokenRepository, SessionRepository
 from .schemas import AuthPayload, SignInPayload, SignUpPayload
-from .services import CsrfService, PasswordService
+from .services import CsrfService, IdentityService, PasswordService
 from .types import SignInFormData, SignUpFormData
 from .utils import set_csrf_cookie, set_refresh_token_cookie, set_session_cookie
 
@@ -76,16 +77,13 @@ async def get_sign_in(
 )
 async def sign_in(
     data: SignInFormData,
+    identity: Annotated[IdentityService, Depends(get_identity_service)],
     service: Annotated[CsrfService, Depends(csrf_service)],
     session_repo: Annotated[SessionRepository, Depends(get_session_repo)],
-    user_repo: Annotated[UserRepository, Depends(get_user_repo)],
 ):
     email = Email(data.email.strip().lower())
     password = RawPassword(data.password)
-    user = user_repo.get(email=email)
-    passwords = PasswordService()
-    if not user or not passwords.is_correct_password(password, user.password_hash):
-        raise InvalidCredentialsException()
+    user = identity.verify(email=email, password=password)
     session_token = generate_session_token()
     session_hash = hash_session_token(session_token)
     session = UserSession(
@@ -238,15 +236,12 @@ async def api_refresh(
 async def api_sign_in(
     payload: SignInPayload,
     response: Response,
+    identity: Annotated[IdentityService, Depends(get_identity_service)],
     refresh_repo: Annotated[RefreshTokenRepository, Depends(get_refresh_repo)],
-    user_repo: Annotated[UserRepository, Depends(get_user_repo)],
 ) -> AuthPayload:
     email = Email(payload.email.strip().lower())
     password = RawPassword(payload.password)
-    user = user_repo.get(email=email)
-    passwords = PasswordService()
-    if not user or not passwords.is_correct_password(password, user.password_hash):
-        raise InvalidCredentialsException()
+    user = identity.verify(email=email, password=password)
     current_timestamp = now()
     access = jwt.encode(
         {

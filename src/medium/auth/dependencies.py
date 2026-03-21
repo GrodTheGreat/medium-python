@@ -22,7 +22,7 @@ from .constants import (
 )
 from .entity import hash_session_token
 from .repository import RefreshTokenRepository, SessionRepository
-from .services import CsrfService
+from .services import CsrfService, IdentityService, PasswordService
 from .value_objects import CsrfToken, SessionToken
 
 
@@ -36,6 +36,12 @@ def get_session_repo(db: Annotated[Session, Depends(get_db)]) -> SessionReposito
 
 def csrf_service() -> CsrfService:
     return CsrfService(CSRF_SIGNING_KEY)
+
+
+def get_identity_service(
+    users: Annotated[UserRepository, Depends(get_user_repo)],
+) -> IdentityService:
+    return IdentityService(passwords=PasswordService(), users=users)
 
 
 def get_csrf(

@@ -5,7 +5,10 @@ import secrets
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerificationError, VerifyMismatchError
 
-from medium.users.value_objects import HashedPassword, RawPassword
+from medium.auth.exceptions import InvalidCredentialsException
+from medium.users.entity import User
+from medium.users.repository import UserRepository
+from medium.users.value_objects import Email, HashedPassword, RawPassword
 
 from .constants import CSRF_BYTES, SEPARATOR
 from .value_objects import CsrfToken
@@ -54,3 +57,18 @@ class PasswordService:
             return self._hasher.verify(hashed_password.value, password.value)
         except (InvalidHashError, VerificationError, VerifyMismatchError):
             return False
+
+
+class IdentityService:
+    def __init__(self, passwords: PasswordService, users: UserRepository) -> None:
+        self._passwords = passwords
+        self._users = users
+
+    def verify(self, email: Email, password: RawPassword) -> User:
+        user = self._users.get(email=email)
+        if user is None or not self._passwords.is_correct_password(
+            password=password,
+            hashed_password=user.password_hash,
+        ):
+            raise InvalidCredentialsException()
+        return user
