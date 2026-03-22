@@ -71,7 +71,7 @@ async def sign_in(
     email = Email(data.email.strip().lower())
     password = RawPassword(data.password)
     user = identity.verify(email=email, password=password)
-    session_token = sessions.create(user)
+    session_token = sessions.issue(user)
     csrf_token = service.generate_token()
     response = RedirectResponse("/", status_code=status.HTTP_302_FOUND)
     set_session_cookie(response, session_token)
@@ -133,7 +133,7 @@ async def sign_up(
     username = Username(data.username.strip().lower())
     password = RawPassword(data.password)
     user = identity.register(email=email, username=username, password=password)
-    session_token = sessions.create(user)
+    session_token = sessions.issue(user)
     csrf_token = service.generate_token()
     response = RedirectResponse("/", status_code=status.HTTP_302_FOUND)
     set_session_cookie(response, session_token)
@@ -160,7 +160,7 @@ async def api_refresh(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
     refresh_service.revoke(refresh_hash)
     access = create_access_token(user)
-    refresh_token = refresh_service.create(user)
+    refresh_token = refresh_service.issue(user)
     set_refresh_token_cookie(response, refresh_token)
     return AuthPayload(
         user=UserSchema(id=user.id.value, username=user.username.value),
@@ -179,7 +179,7 @@ async def api_sign_in(
     password = RawPassword(payload.password)
     user = identity.verify(email=email, password=password)
     access = create_access_token(user)
-    refresh_token = refresh_service.create(user)
+    refresh_token = refresh_service.issue(user)
     set_refresh_token_cookie(response, refresh_token)
     return AuthPayload(
         user=UserSchema(id=user.id.value, username=user.username.value),
@@ -216,7 +216,7 @@ async def api_sign_up(
     password = RawPassword(payload.password)
     user = identity.register(email=email, username=username, password=password)
     access = create_access_token(user)
-    refresh_token = refresh_service.create(user)
+    refresh_token = refresh_service.issue(user)
     set_refresh_token_cookie(response, refresh_token)
     return AuthPayload(
         user=UserSchema(id=user.id.value, username=user.username.value),

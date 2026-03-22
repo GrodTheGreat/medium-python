@@ -23,7 +23,7 @@ class RefreshTokenRepository:
         self._session.add(new_refresh_token)
         self._session.commit()
         self._session.refresh(new_refresh_token)
-        return refresh_token_record_to_entity(new_refresh_token)
+        return _refresh_token_record_to_entity(new_refresh_token)
 
     def get(
         self,
@@ -46,7 +46,7 @@ class RefreshTokenRepository:
         refresh_token = self._session.exec(statement).first()
         if refresh_token is None:
             return None
-        return refresh_token_record_to_entity(refresh_token)
+        return _refresh_token_record_to_entity(refresh_token)
 
     def save(self, token: UserRefreshToken) -> UserRefreshToken:
         statement = (
@@ -64,10 +64,13 @@ class RefreshTokenRepository:
         refresh_token.revoked_at = token.revoked_at
         self._session.commit()
         self._session.refresh(refresh_token)
-        return refresh_token_record_to_entity(refresh_token)
+        return _refresh_token_record_to_entity(refresh_token)
 
 
-def refresh_token_record_to_entity(token: RefreshTokenRecord) -> UserRefreshToken:
+def _refresh_token_record_to_entity(token: RefreshTokenRecord) -> UserRefreshToken:
+    if token.user_id is None:
+        # TODO: this shouldn't really be possible, but it would signal something went wrong with the db or sqlmodel
+        raise Exception()
     return UserRefreshToken(
         token_hash=RefreshHash(token.token_hash),
         user_id=UserId(token.user_id),
@@ -89,7 +92,7 @@ class SessionRepository:
         self._session.add(new_session)
         self._session.commit()
         self._session.refresh(new_session)
-        return session_record_to_entity(new_session)
+        return _session_record_to_entity(new_session)
 
     def get(
         self,
@@ -114,7 +117,7 @@ class SessionRepository:
         session = self._session.exec(statement).first()
         if session is None:
             return None
-        return session_record_to_entity(session)
+        return _session_record_to_entity(session)
 
     def save(self, session: UserSession) -> UserSession:
         statement = (
@@ -132,10 +135,13 @@ class SessionRepository:
         session_record.revoked_at = session.revoked_at
         self._session.commit()
         self._session.refresh(session_record)
-        return session_record_to_entity(session_record)
+        return _session_record_to_entity(session_record)
 
 
-def session_record_to_entity(session: UserSessionRecord) -> UserSession:
+def _session_record_to_entity(session: UserSessionRecord) -> UserSession:
+    if session.user_id is None:
+        # TODO: this shouldn't really be possible, but it would signal something went wrong with the db or sqlmodel
+        raise Exception()
     return UserSession(
         session_hash=SessionHash(session.session_hash),
         user_id=UserId(session.user_id),

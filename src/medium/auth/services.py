@@ -122,7 +122,7 @@ class RefreshTokenService:
     def __init__(self, refresh_repo: RefreshTokenRepository) -> None:
         self._refresh_repo = refresh_repo
 
-    def create(self, user: User | CurrentUser) -> RefreshToken:
+    def issue(self, user: User | CurrentUser) -> RefreshToken:
         token = _generate_refresh_token()
         token_hash = hash_refresh_token(token=token)
         refresh = UserRefreshToken(
@@ -155,8 +155,7 @@ class SessionService:
     def __init__(self, session_repo: SessionRepository) -> None:
         self._session_repo = session_repo
 
-    # TODO: kinda want a better name for this...
-    def create(self, user: User) -> SessionToken:
+    def issue(self, user: User) -> SessionToken:
         token = _generate_session_token()
         token_hash = hash_session_token(token)
         session = UserSession(

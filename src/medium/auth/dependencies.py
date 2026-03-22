@@ -3,7 +3,6 @@ from typing import Annotated
 from fastapi import Cookie, Depends, Header, HTTPException, Request, status
 from sqlmodel import Session
 
-from medium.auth.entity import CurrentUser
 from medium.dependencies import get_db
 from medium.users.dependencies import get_user_repo
 from medium.users.entity import User
@@ -16,6 +15,7 @@ from .constants import (
     XSRF_INPUT,
     XSRF_KEY,
 )
+from .entity import CurrentUser
 from .repository import RefreshTokenRepository, SessionRepository
 from .services import (
     CsrfService,
