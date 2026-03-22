@@ -13,6 +13,7 @@ from medium.auth.exceptions import (
     PasswordMismatchException,
 )
 from medium.auth.router import api_router, auth_router
+from medium.exceptions import MediumException, ValidationException
 from medium.users.entity import User
 from medium.users.exceptions import EmailConflictException, UsernameConflictException
 
@@ -63,6 +64,26 @@ async def username_conflict_exception_handler(
     return JSONResponse(
         content={"message": exc.message},
         status_code=status.HTTP_409_CONFLICT,
+    )
+
+
+@app.exception_handler(ValidationException)
+async def validation_exception_handler(
+    _: Request, exc: ValidationException
+) -> JSONResponse:
+    return JSONResponse(
+        content={"message": exc.message},
+        status_code=status.HTTP_400_BAD_REQUEST,
+    )
+
+
+@app.exception_handler(MediumException)
+async def internal_server_exception_handler(
+    _: Request, exc: MediumException
+) -> JSONResponse:
+    return JSONResponse(
+        content={"message": exc.message},
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
     )
 
 

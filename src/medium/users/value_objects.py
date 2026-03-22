@@ -1,5 +1,7 @@
 from dataclasses import dataclass
 
+from .exceptions import EmailValidationException, UsernameValidationException
+
 
 @dataclass(frozen=True)
 class Email:
@@ -8,9 +10,9 @@ class Email:
     def __post_init__(self) -> None:
         length = len(self.value)
         if length < 6:
-            raise Exception("email too short")
+            raise EmailValidationException("email too short")
         if length > 256:
-            raise Exception("email too long")
+            raise EmailValidationException("email too long")
 
 
 @dataclass(frozen=True)
@@ -20,9 +22,9 @@ class Username:
     def __post_init__(self) -> None:
         length = len(self.value)
         if length < 3:
-            raise Exception("username too short")
+            raise UsernameValidationException("username too short")
         if length > 50:
-            raise Exception("username too long")
+            raise UsernameValidationException("username too long")
 
 
 @dataclass(frozen=True)
