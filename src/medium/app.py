@@ -79,7 +79,8 @@ async def validation_exception_handler(
 
 @app.exception_handler(MediumException)
 async def internal_server_exception_handler(
-    _: Request, exc: MediumException
+    _: Request,
+    exc: MediumException,
 ) -> JSONResponse:
     return JSONResponse(
         content={"message": exc.message},
@@ -107,7 +108,8 @@ async def request_timing_middleware(request: Request, call_next: Callable) -> Re
 
 @app.get("/")
 async def get_index(
-    request: Request, user: Annotated[User | None, Depends(get_current_user)]
+    request: Request,
+    user: Annotated[User | None, Depends(get_current_user)],
 ) -> HTMLResponse:
     context = {"current_user": user}
     return templates.TemplateResponse(request, "index.html", context)

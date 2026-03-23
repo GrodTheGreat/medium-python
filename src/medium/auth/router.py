@@ -7,6 +7,10 @@ from fastapi.templating import Jinja2Templates
 from starlette.responses import RedirectResponse
 
 from medium.users.dependencies import get_user_repo
+from medium.users.exceptions import (
+    EmailValidationException,
+    PasswordValidationException,
+)
 from medium.users.repository import UserRepository
 from medium.users.schemas import UserSchema
 from medium.users.value_objects import Email, RawPassword, Username
@@ -26,7 +30,7 @@ from .dependencies import (
     require_auth,
     verify_csrf,
 )
-from .exceptions import PasswordMismatchException
+from .exceptions import InvalidCredentialsException, PasswordMismatchException
 from .schemas import AuthPayload, SignInPayload, SignUpPayload
 from .services import (
     CsrfService,
@@ -63,19 +67,57 @@ async def get_sign_in(
     dependencies=[Depends(verify_csrf), Depends(require_anon)],
 )
 async def sign_in(
+    request: Request,
     data: SignInFormData,
+    csrf: Annotated[CsrfToken, Depends(get_csrf)],
     identity: Annotated[IdentityService, Depends(get_identity_service)],
-    service: Annotated[CsrfService, Depends(csrf_service)],
     sessions: Annotated[SessionService, Depends(get_session_service)],
 ):
-    email = Email(data.email.strip().lower())
-    password = RawPassword(data.password)
-    user = identity.verify(email=email, password=password)
-    session_token = sessions.issue(user)
-    csrf_token = service.generate_token()
-    response = RedirectResponse("/", status_code=status.HTTP_302_FOUND)
-    set_session_cookie(response, session_token)
-    set_csrf_cookie(response, csrf_token)
+    context = {
+        "errors": {},
+        "csrf": csrf.value,
+        "email": data.email,
+        "password": data.password,
+    }
+    form_errors = []
+    email_errors = []
+    password_errors = []
+    try:
+        email = Email(data.email.strip().lower())
+        password = RawPassword(data.password)
+        user = identity.verify(email=email, password=password)
+    except EmailValidationException as exc:
+        email_errors.append(exc.message)
+        context["errors"]["email"] = email_errors
+        response = templates.TemplateResponse(
+            request,
+            "sign-in.html",
+            context,
+            status_code=status.HTTP_401_UNAUTHORIZED,
+        )
+    except PasswordValidationException as exc:
+        password_errors.append(exc.message)
+        context["errors"]["password"] = password_errors
+        response = templates.TemplateResponse(
+            request,
+            "sign-in.html",
+            context,
+            status_code=status.HTTP_401_UNAUTHORIZED,
+        )
+    except InvalidCredentialsException as exc:
+        form_errors.append(exc.message)
+        context["errors"]["form"] = form_errors
+        response = templates.TemplateResponse(
+            request,
+            "sign-in.html",
+            context,
+            status_code=status.HTTP_401_UNAUTHORIZED,
+        )
+    else:
+        session_token = sessions.issue(user)
+        response = RedirectResponse("/", status_code=status.HTTP_302_FOUND)
+        set_session_cookie(response, session_token)
+    set_csrf_cookie(response, csrf)
     return response
 
 
